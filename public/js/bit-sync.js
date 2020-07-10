@@ -28,6 +28,10 @@
  * THE SOFTWARE.
  */
 
+// number of blocks each worker has to calculate
+const blocksPerWorker = 10;
+const workerUrl = "js/worker.js"
+
 var MMHASH3;
 if(!MMHASH3){
     MMHASH3 = require('./murmurhash3');
@@ -282,51 +286,37 @@ var BSync = new function()
      *   16 bytes, md5 checksum
      *
      */
-    function createChecksumDocument(blockSize, data)
-    {
-        var filebytelength = data.byteLength;
-        var numBlocks = Math.ceil(data.byteLength / blockSize);
-        var i=0;
-        var docLength = ( numBlocks * //the number of blocks times
-        ( 4 +       //the 4 bytes for the adler32 plus
-        16) +     //the 16 bytes for the md5
-        4 +         //plus 4 bytes for block size
-        4 + 4);         //plus 4 bytes for the number of blocks
-
-        var doc = new ArrayBuffer(docLength);
-        var dataView = new Uint8Array(data);
-        var bufferView = new Uint32Array(doc);
-        var offset = 3;
-        var chunkSize = 5; //each chunk is 4 bytes for adler32 and 16 bytes for md5. for Uint32Array view, this is 20 bytes, or 5 4-byte uints
+    function createChecksumDocument(blockSize, data) {
+        const numBlocks = Math.ceil(data.byteLength / blockSize);
+        const workerNums = Math.ceil(numBlocks / blocksPerWorker);
+        const docLength = 20 * numBlocks + 12;
+        let doc = new ArrayBuffer(docLength);
+        let dataView = new Uint8Array(data);
+        let bufferView = new Uint32Array(doc);
 
         bufferView[0] = blockSize;
         bufferView[1] = numBlocks;
-        bufferView[2] = filebytelength;
+        bufferView[2] = data.byteLength;
 
-        //spin through the data and create checksums for each block
-        for(i=0; i < numBlocks; i++)
-        {
-            var start = i * blockSize;
-            var end = (i * blockSize) + blockSize;
+        for (let i = 0; i < workerNums; i++) {
+            let startBlock = i * blocksPerWorker;
+            let endBlock = startBlock + blocksPerWorker - 1;
+            if (endBlock >= numBlocks) {
+                endBlock = numBlocks - 1;
+            }
 
-            //calculate the adler32 checksum
-            bufferView[offset] = adler32(start, end - 1, dataView).checksum;
-            offset++;
-
-            //calculate the full md5 checksum
-            var chunkLength = blockSize;
-            if((start + blockSize) > data.byteLength)
-                chunkLength = data.byteLength - start;
-
-
-            var md5sum = md5(dataView,0,start,chunkLength);
-            // var md5sum = [0,0,0,0]
-            for(var j=0; j < 4; j++) bufferView[offset++] = md5sum[j];
-
+            let worker = new Worker(workerUrl);
+            worker.postMessage({
+                startBlock,
+                endBlock,
+                dataView,
+                doc,
+                blockSize,
+                byteLength: data.byteLength
+            });
         }
 
         return doc;
-
     }
 
     /**
@@ -693,5 +683,3 @@ if(((typeof require) != "undefined") &&
     ((typeof module) != "undefined") &&
     ((typeof module.exports) != "undefined"))
     module.exports = BSync;
-
-
