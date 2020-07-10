@@ -297,7 +297,7 @@ var BSync = new function()
         var dataView = new Uint8Array(data);
         var bufferView = new Uint32Array(doc);
         var offset = 3;
-        var chunkSize = 5; //each chunk is 4 bytes for adler32 and 16 bytes for md5. for Uint32Array view, this is 20 bytes, or 5 4-byte uints
+        var adlerInfo = null;
 
         bufferView[0] = blockSize;
         bufferView[1] = numBlocks;
@@ -309,15 +309,21 @@ var BSync = new function()
             var start = i * blockSize;
             var end = (i * blockSize) + blockSize;
 
-            //calculate the adler32 checksum
-            bufferView[offset] = adler32(start, end - 1, dataView).checksum;
-            offset++;
-
             //calculate the full md5 checksum
             var chunkLength = blockSize;
-            if((start + blockSize) > data.byteLength)
+            if((start + blockSize) > data.byteLength) {
+                adlerInfo = null;
                 chunkLength = data.byteLength - start;
+            }
 
+            if (adlerInfo) {
+                adlerInfo = rollingChecksum(start, end - 1, dataView);
+            } else {
+                adlerInfo = adler32(start, end - 1, dataView);
+            }
+            //calculate the adler32 checksum
+            bufferView[offset] = adlerInfo.checksum;
+            offset++;
 
             var md5sum = md5(dataView,0,start,chunkLength);
             // var md5sum = [0,0,0,0]
@@ -693,5 +699,3 @@ if(((typeof require) != "undefined") &&
     ((typeof module) != "undefined") &&
     ((typeof module.exports) != "undefined"))
     module.exports = BSync;
-
-
