@@ -196,10 +196,12 @@ var BSync = new function()
 
     var md5_1 = MMHASH3.lib.x86.hash128_arraybuffer;
 
-    var md5 = function (message,seed,offset,chunksize) {
-            var m = message.slice(offset,offset+chunksize);
-            return SipHash.lib.hash(m);
-        }
+    function md5 (message,seed,offset,chunksize) {
+        console.log("entered")
+        // var m = message.slice(offset,offset+chunksize);
+        console.log("passed")
+        return SipHash.lib.hash(message);
+    }
 
 
 
@@ -238,8 +240,8 @@ var BSync = new function()
         {
             a += data[i];
             b += a;
-            a %= MOD_ADLER;
-            b %= MOD_ADLER;
+            a %= 65521;
+            b %= 65521;
         }
 
         return {a: a>>>0, b: b>>>0, checksum: ((b << 16) | a) >>>0};
@@ -311,6 +313,7 @@ var BSync = new function()
 
         const para = new Parallel(dataThreads, {
             env: {
+                doc,
                 dataView,
                 bufferView,
                 numBlocks,
@@ -318,29 +321,33 @@ var BSync = new function()
                 byteLength,
                 blocksPerThread
             }
-        });
+        })
+        .require(md5)
+        .require(adler32)
+        .require(rollingChecksum)
+        .require(SipHash.lib.hash);
         para.map(function (startBlock) {
-            console.log("ATTENTION HERE PLEASE!", startBlock)
             const dataView = global.env.dataView;
             const bufferView = global.env.bufferView;
             const blockSize = global.env.blockSize;
             const byteLength = global.env.byteLength;
             const blocksPerThread = global.env.blocksPerThread;
             const numBlocks = global.env.numBlocks;
-            const endBlock = startBlock + blocksPerThread;
+            let endBlock = startBlock + blocksPerThread;
             if (endBlock > numBlocks) {
                 endBlock = numBlocks + 1;
             }
 
             let adlerInfo = null;
             let offset = 3 + 5 * startBlock;
-            for (let i = startBlock; i <= endBlock; i++) {
+            for (let i = startBlock; i < endBlock; i++) {
                 let start = i * blockSize;
                 let end = start + blockSize;
                 let chunkLength = blockSize;
 
-                if (start + blockSize > byteLength) {
+                if (end > byteLength) {
                     adlerInfo = null;
+                    end = byteLength;
                     chunkLength = byteLength - start;
                 }
 
@@ -350,14 +357,16 @@ var BSync = new function()
                 } else {
                     adlerInfo = adler32(start, end - 1, dataView);
                 }
-                bufferView[offset++] = adlerInfo;
+                bufferView[offset++] = adlerInfo.checksum;
 
                 // calculate the full SipHash checksum
-                const sipHashSum = md5(dataView, 0, start, chunkLength);
-                for (let j = 0; j < 4; j++) {
-                    bufferView[offset++] = sipHashSum[j];
-                }
+                // const sipHashSum = md5(dataView, 0, start, chunkLength);
+                // console.log("THERE")
+                // for (let j = 0; j < 4; j++) {
+                //     bufferView[offset++] = sipHashSum[j];
+                // }
             }
+            console.log("doc: ", doc);
         }).then(function (data) {
             console.log("done!!!!!!")
             console.log(global.env.bufferView);
