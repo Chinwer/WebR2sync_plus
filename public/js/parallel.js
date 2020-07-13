@@ -116,14 +116,15 @@
         preStr += this.requiredFunctions[i].fn.toString();
       }
     }
-
+    console.log('pre dataview: ', env.dataView)
     env = JSON.stringify(env || {});
 
     const ns = this.options.envNamespace;
-
     if (isNode) {
       return `${preStr}process.on("message", function(e) {global.${ns} = ${env};process.send(JSON.stringify((${cb.toString()})(JSON.parse(e).data)))})`;
     }
+    console.log('lat dataview: ', Uint8Array.from(Object.values(JSON.parse(env).dataView)))
+
     return `${preStr}self.onmessage = function(e) {var global = {}; global.${ns} = ${env};self.postMessage((${cb.toString()})(e.data))}`;
   };
 

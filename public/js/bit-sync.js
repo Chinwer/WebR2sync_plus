@@ -28,6 +28,8 @@
  * THE SOFTWARE.
  */
 
+// import * as SipHash from "./siphash";
+
 // number of blocks each worker has to calculate
 let blocksPerThread = 10;
 const maxThreads = 10;
@@ -198,9 +200,12 @@ var BSync = new function()
 
     function md5 (message,seed,offset,chunksize) {
         console.log("entered")
-        // var m = message.slice(offset,offset+chunksize);
+        console.log('message: ', message)
+        var m = message.slice(offset,offset+chunksize);
+        console.log('m: ', m)
         console.log("passed")
-        return SipHash.lib.hash(message);
+        console.log(SipHash.lib.hash(m))
+        return SipHash.lib.hash(m);
     }
 
 
@@ -255,7 +260,7 @@ var BSync = new function()
      */
     function rollingChecksum(adlerInfo, offset, end, data)
     {
-        newdata = 0
+        var newdata = 0;
         if(end < data.length)
             newdata = data[end]
         else
@@ -310,7 +315,6 @@ var BSync = new function()
         for (let i = 0; i < numThreads; i++) {
             dataThreads.push(i * blocksPerThread);
         }
-
         const para = new Parallel(dataThreads, {
             env: {
                 doc,
@@ -327,7 +331,12 @@ var BSync = new function()
         .require(rollingChecksum)
         .require(SipHash.lib.hash);
         para.map(function (startBlock) {
-            const dataView = global.env.dataView;
+            console.log('type of global.env.dataView: ', typeof global.env.dataView)
+            console.log(global.env.dataView)
+            const dataView = Uint8Array.from(Object.values(global.env.dataView))
+            console.log('type of dataView: ', typeof dataView)
+            console.log(dataView)
+
             const bufferView = global.env.bufferView;
             const blockSize = global.env.blockSize;
             const byteLength = global.env.byteLength;
@@ -358,13 +367,17 @@ var BSync = new function()
                     adlerInfo = adler32(start, end - 1, dataView);
                 }
                 bufferView[offset++] = adlerInfo.checksum;
-
+                console.log("THERE")
+                console.log('i: ', i)
+                console.log('endBlock: ', endBlock)
+                console.log('start: ', start)
+                console.log('chunkLength: ', chunkLength)
                 // calculate the full SipHash checksum
-                // const sipHashSum = md5(dataView, 0, start, chunkLength);
-                // console.log("THERE")
-                // for (let j = 0; j < 4; j++) {
-                //     bufferView[offset++] = sipHashSum[j];
-                // }
+                const sipHashSum = md5(dataView, 0, start, chunkLength);
+                console.log('********')
+                for (let j = 0; j < 4; j++) {
+                    bufferView[offset++] = sipHashSum[j];
+                }
             }
             console.log("doc: ", doc);
         }).then(function (data) {
