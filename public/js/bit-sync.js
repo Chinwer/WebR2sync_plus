@@ -29,8 +29,8 @@
  */
 
 // number of blocks each worker has to calculate
-const blocksPerWorker = 10;
-const workerUrl = "js/worker.js"
+let blocksPerThread = 10;
+const maxThreads = 10;
 
 var MMHASH3;
 if(!MMHASH3){
@@ -287,8 +287,8 @@ var BSync = new function()
      *
      */
     function createChecksumDocument(blockSize, data) {
-        const numBlocks = Math.ceil(data.byteLength / blockSize);
-        const workerNums = Math.ceil(numBlocks / blocksPerWorker);
+        const byteLength = data.byteLength;
+        const numBlocks = Math.ceil(byteLength / blockSize);
         const docLength = 20 * numBlocks + 12;
         let doc = new ArrayBuffer(docLength);
         let dataView = new Uint8Array(data);
@@ -296,25 +296,73 @@ var BSync = new function()
 
         bufferView[0] = blockSize;
         bufferView[1] = numBlocks;
-        bufferView[2] = data.byteLength;
+        bufferView[2] = byteLength;
 
-        for (let i = 0; i < workerNums; i++) {
-            let startBlock = i * blocksPerWorker;
-            let endBlock = startBlock + blocksPerWorker - 1;
-            if (endBlock >= numBlocks) {
-                endBlock = numBlocks - 1;
+        let numThreads = numBlocks / blocksPerThread;
+        if (numThreads > maxThreads) {
+            numThreads = maxThreads;
+            blocksPerThread = numBlocks / numThreads;
+        }
+
+        let dataThreads = [];
+        for (let i = 0; i < numThreads; i++) {
+            dataThreads.push(i * blocksPerThread);
+        }
+
+        const para = new Parallel(dataThreads, {
+            env: {
+                dataView,
+                bufferView,
+                numBlocks,
+                blockSize,
+                byteLength,
+                blocksPerThread
+            }
+        });
+        para.map(function (startBlock) {
+            console.log("ATTENTION HERE PLEASE!", startBlock)
+            const dataView = global.env.dataView;
+            const bufferView = global.env.bufferView;
+            const blockSize = global.env.blockSize;
+            const byteLength = global.env.byteLength;
+            const blocksPerThread = global.env.blocksPerThread;
+            const numBlocks = global.env.numBlocks;
+            const endBlock = startBlock + blocksPerThread;
+            if (endBlock > numBlocks) {
+                endBlock = numBlocks + 1;
             }
 
-            let worker = new Worker(workerUrl);
-            worker.postMessage({
-                startBlock,
-                endBlock,
-                dataView,
-                doc,
-                blockSize,
-                byteLength: data.byteLength
-            });
-        }
+            let adlerInfo = null;
+            let offset = 3 + 5 * startBlock;
+            for (let i = startBlock; i <= endBlock; i++) {
+                let start = i * blockSize;
+                let end = start + blockSize;
+                let chunkLength = blockSize;
+
+                if (start + blockSize > byteLength) {
+                    adlerInfo = null;
+                    chunkLength = byteLength - start;
+                }
+
+                // calculate the adler32 checksum
+                if (adlerInfo) {
+                    adlerInfo = rollingChecksum(start, end - 1, dataView)
+                } else {
+                    adlerInfo = adler32(start, end - 1, dataView);
+                }
+                bufferView[offset++] = adlerInfo;
+
+                // calculate the full SipHash checksum
+                const sipHashSum = md5(dataView, 0, start, chunkLength);
+                for (let j = 0; j < 4; j++) {
+                    bufferView[offset++] = sipHashSum[j];
+                }
+            }
+        }).then(function (data) {
+            console.log("done!!!!!!")
+            console.log(global.env.bufferView);
+        });
+
 
         return doc;
     }
