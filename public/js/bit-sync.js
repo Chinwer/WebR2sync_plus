@@ -255,14 +255,15 @@ var BSync = new function()
      */
     function rollingChecksum(adlerInfo, offset, end, data)
     {
+        const MOD = 65521;
         var newdata = 0;
         if(end < data.length)
             newdata = data[end]
         else
             end = data.length-1
         var temp = data[offset - 1]; //this is the first byte used in the previous iteration
-        var a = ((adlerInfo.a - temp + newdata) % MOD_ADLER + MOD_ADLER)%MOD_ADLER;
-        var b = ((adlerInfo.b - ((end - offset + 1) * temp) + a - 1) % MOD_ADLER + MOD_ADLER)%MOD_ADLER;
+        var a = ((adlerInfo.a - temp + newdata) % MOD + MOD) % MOD;
+        var b = ((adlerInfo.b - ((end - offset + 1) * temp) + a - 1) % MOD + MOD) % MOD;
         return {a: a>>>0, b: b>>>0, checksum: ((b << 16) | a)>>>0};
     }
 
@@ -304,7 +305,7 @@ var BSync = new function()
 
             // calculate the adler32 checksum
             if (adlerInfo) {
-                adlerInfo = rollingChecksum(start, end - 1, dataView)
+                adlerInfo = rollingChecksum(start, end - 1, dataView, adlerInfo)
             } else {
                 adlerInfo = adler32(start, end - 1, dataView);
             }
@@ -342,10 +343,10 @@ var BSync = new function()
 
         console.log("pre bufferView: ", bufferView);
 
-        let numThreads = numBlocks / blocksPerThread;
+        let numThreads = Math.ceil(numBlocks / blocksPerThread);
         if (numThreads > maxThreads) {
             numThreads = maxThreads;
-            blocksPerThread = numBlocks / numThreads;
+            blocksPerThread = Math.ceil(numBlocks / numThreads);
         }
 
         let dataThreads = [];
