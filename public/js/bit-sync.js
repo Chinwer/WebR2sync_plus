@@ -199,12 +199,7 @@ var BSync = new function()
     var md5_1 = MMHASH3.lib.x86.hash128_arraybuffer;
 
     function md5 (message,seed,offset,chunksize) {
-        console.log("entered")
-        console.log('message: ', message)
         var m = message.slice(offset,offset+chunksize);
-        console.log('m: ', m)
-        console.log("passed")
-        console.log(SipHash.lib.hash(m))
         return SipHash.lib.hash(m);
     }
 
@@ -317,7 +312,6 @@ var BSync = new function()
         }
         const para = new Parallel(dataThreads, {
             env: {
-                doc,
                 dataView,
                 bufferView,
                 numBlocks,
@@ -328,15 +322,9 @@ var BSync = new function()
         })
         .require(md5)
         .require(adler32)
-        .require(rollingChecksum)
-        .require(SipHash.lib.hash);
+        .require(rollingChecksum);
         para.map(function (startBlock) {
-            console.log('type of global.env.dataView: ', typeof global.env.dataView)
-            console.log(global.env.dataView)
             const dataView = Uint8Array.from(Object.values(global.env.dataView))
-            console.log('type of dataView: ', typeof dataView)
-            console.log(dataView)
-
             const bufferView = global.env.bufferView;
             const blockSize = global.env.blockSize;
             const byteLength = global.env.byteLength;
@@ -367,22 +355,18 @@ var BSync = new function()
                     adlerInfo = adler32(start, end - 1, dataView);
                 }
                 bufferView[offset++] = adlerInfo.checksum;
-                console.log("THERE")
-                console.log('i: ', i)
-                console.log('endBlock: ', endBlock)
-                console.log('start: ', start)
-                console.log('chunkLength: ', chunkLength)
                 // calculate the full SipHash checksum
+                console.log("THERE")
                 const sipHashSum = md5(dataView, 0, start, chunkLength);
                 console.log('********')
                 for (let j = 0; j < 4; j++) {
                     bufferView[offset++] = sipHashSum[j];
                 }
             }
-            console.log("doc: ", doc);
         }).then(function (data) {
             console.log("done!!!!!!")
-            console.log(global.env.bufferView);
+        }, function (err) {
+            console.log("ERROR: ", err)
         });
 
 
