@@ -368,7 +368,7 @@ var BSync = new function()
         .require(adler32)
         .require(rollingChecksum);
 
-        return await new Promise(function (resolve, reject) {
+        const res = await new Promise(function (resolve, reject) {
             para
             .map(calcu)
             .then(data => {
@@ -385,6 +385,8 @@ var BSync = new function()
         })
         .then(data => data)
         .catch(err => console.log("Error calculating checksum: ", err));
+        console.log(res)
+        return res;
     }
 
     /**

@@ -216,6 +216,7 @@ function load_blocks() {
     parseFile(current_file,function(type,data,start,stop){
         var checksumstart = new Date().getTime();
         checksumdoc = BSync.createChecksumDocument(block_size,data);
+        console.log('checksumdoc: ', checksumdoc)
         var docView = new Uint32Array(checksumdoc);
         numBlocks = docView[1];
         all_bytelength += docView[2];
