@@ -300,6 +300,8 @@ var BSync = new function()
         bufferView[1] = numBlocks;
         bufferView[2] = byteLength;
 
+        console.log("pre bufferView: ", bufferView);
+
         let numThreads = numBlocks / blocksPerThread;
         if (numThreads > maxThreads) {
             numThreads = maxThreads;
@@ -313,30 +315,31 @@ var BSync = new function()
         const para = new Parallel(dataThreads, {
             env: {
                 dataView,
-                bufferView,
                 numBlocks,
                 blockSize,
                 byteLength,
                 blocksPerThread
-            }
+            },
+            evalPath: "/js/eval.js"
         })
+        .require("siphash.js")
         .require(md5)
         .require(adler32)
         .require(rollingChecksum);
         para.map(function (startBlock) {
-            const dataView = Uint8Array.from(Object.values(global.env.dataView))
-            const bufferView = global.env.bufferView;
             const blockSize = global.env.blockSize;
             const byteLength = global.env.byteLength;
             const blocksPerThread = global.env.blocksPerThread;
             const numBlocks = global.env.numBlocks;
+            const dataView = Uint8Array.from(Object.values(global.env.dataView))
             let endBlock = startBlock + blocksPerThread;
             if (endBlock > numBlocks) {
-                endBlock = numBlocks + 1;
+                endBlock = numBlocks;
             }
+            const bufferView = new Uint32Array(5 * (endBlock - startBlock));
 
             let adlerInfo = null;
-            let offset = 3 + 5 * startBlock;
+            let offset = 0;
             for (let i = startBlock; i < endBlock; i++) {
                 let start = i * blockSize;
                 let end = start + blockSize;
@@ -356,17 +359,23 @@ var BSync = new function()
                 }
                 bufferView[offset++] = adlerInfo.checksum;
                 // calculate the full SipHash checksum
-                console.log("THERE")
                 const sipHashSum = md5(dataView, 0, start, chunkLength);
-                console.log('********')
                 for (let j = 0; j < 4; j++) {
                     bufferView[offset++] = sipHashSum[j];
                 }
             }
+            return bufferView;
         }).then(function (data) {
-            console.log("done!!!!!!")
+            let offset = 3;
+            const len = data.length;
+            for (let i = 0; i < len; i++) {
+                for (let j = 0; j < data[i].length; j++) {
+                    bufferView[offset++] = data[i][j];
+                }
+            }
+            console.log("lat bufferView: ", bufferView);
         }, function (err) {
-            console.log("ERROR: ", err)
+            console.log("Error while calculating checksum: ", err)
         });
 
 
