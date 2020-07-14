@@ -277,6 +277,47 @@ var BSync = new function()
         return (uint8View[offset] | uint8View[++offset] << 8 | uint8View[++offset] << 16 | uint8View[++offset] << 24) >>> 0;
     }
 
+    function calcu(startBlock) {
+        const blockSize = global.env.blockSize;
+        const byteLength = global.env.byteLength;
+        const blocksPerThread = global.env.blocksPerThread;
+        const numBlocks = global.env.numBlocks;
+        const dataView = Uint8Array.from(Object.values(global.env.dataView))
+        let endBlock = startBlock + blocksPerThread;
+        if (endBlock > numBlocks) {
+            endBlock = numBlocks;
+        }
+        const bufferView = new Array(5 * (endBlock - startBlock)).fill(0);
+
+        let adlerInfo = null;
+        let offset = 0;
+        for (let i = startBlock; i < endBlock; i++) {
+            let start = i * blockSize;
+            let end = start + blockSize;
+            let chunkLength = blockSize;
+
+            if (end > byteLength) {
+                adlerInfo = null;
+                end = byteLength;
+                chunkLength = byteLength - start;
+            }
+
+            // calculate the adler32 checksum
+            if (adlerInfo) {
+                adlerInfo = rollingChecksum(start, end - 1, dataView)
+            } else {
+                adlerInfo = adler32(start, end - 1, dataView);
+            }
+            bufferView[offset++] = adlerInfo.checksum;
+            // calculate the full SipHash checksum
+            const sipHashSum = md5(dataView, 0, start, chunkLength);
+            for (let j = 0; j < 4; j++) {
+                bufferView[offset++] = sipHashSum[j];
+            }
+        }
+        return bufferView;
+    }
+
     /**
      * Create a document that contains all of the checksum information for each block in the destination data. Everything is little endian
      * Document structure:
@@ -288,13 +329,12 @@ var BSync = new function()
      *   16 bytes, md5 checksum
      *
      */
-    function createChecksumDocument(blockSize, data) {
+    async function createChecksumDocument(blockSize, data) {
         const byteLength = data.byteLength;
         const numBlocks = Math.ceil(byteLength / blockSize);
         const docLength = 20 * numBlocks + 12;
-        let doc = new ArrayBuffer(docLength);
         let dataView = new Uint8Array(data);
-        let bufferView = new Uint32Array(doc);
+        let bufferView = [blockSize, numBlocks, byteLength];
 
         bufferView[0] = blockSize;
         bufferView[1] = numBlocks;
@@ -326,60 +366,24 @@ var BSync = new function()
         .require(md5)
         .require(adler32)
         .require(rollingChecksum);
-        para.map(function (startBlock) {
-            const blockSize = global.env.blockSize;
-            const byteLength = global.env.byteLength;
-            const blocksPerThread = global.env.blocksPerThread;
-            const numBlocks = global.env.numBlocks;
-            const dataView = Uint8Array.from(Object.values(global.env.dataView))
-            let endBlock = startBlock + blocksPerThread;
-            if (endBlock > numBlocks) {
-                endBlock = numBlocks;
-            }
-            const bufferView = new Uint32Array(5 * (endBlock - startBlock));
 
-            let adlerInfo = null;
-            let offset = 0;
-            for (let i = startBlock; i < endBlock; i++) {
-                let start = i * blockSize;
-                let end = start + blockSize;
-                let chunkLength = blockSize;
-
-                if (end > byteLength) {
-                    adlerInfo = null;
-                    end = byteLength;
-                    chunkLength = byteLength - start;
+        return await new Promise(function (resolve, reject) {
+            para
+            .map(calcu)
+            .then(data => {
+                console.log("data: ", data);
+                console.log(typeof data);
+                const len = data.length;
+                for (let i = 0; i < len; i++) {
+                    bufferView.push(...data[i]);
                 }
-
-                // calculate the adler32 checksum
-                if (adlerInfo) {
-                    adlerInfo = rollingChecksum(start, end - 1, dataView)
-                } else {
-                    adlerInfo = adler32(start, end - 1, dataView);
-                }
-                bufferView[offset++] = adlerInfo.checksum;
-                // calculate the full SipHash checksum
-                const sipHashSum = md5(dataView, 0, start, chunkLength);
-                for (let j = 0; j < 4; j++) {
-                    bufferView[offset++] = sipHashSum[j];
-                }
-            }
-            return bufferView;
-        }).then(function (data) {
-            let offset = 3;
-            const len = data.length;
-            for (let i = 0; i < len; i++) {
-                for (let j = 0; j < data[i].length; j++) {
-                    bufferView[offset++] = data[i][j];
-                }
-            }
-            console.log("lat bufferView: ", bufferView);
-        }, function (err) {
-            console.log("Error while calculating checksum: ", err)
-        });
-
-
-        return doc;
+                resolve(bufferView);
+            }, err => {
+                reject(err);
+            });
+        })
+        .then(data => data)
+        .catch(err => console.log("Error calculating checksum: ", err));
     }
 
     /**
