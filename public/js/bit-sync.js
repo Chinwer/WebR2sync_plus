@@ -279,19 +279,30 @@ var BSync = new function()
     }
 
     function calcu(startBlock) {
+        const t1 = performance.now();
         const blockSize = global.env.blockSize;
         const byteLength = global.env.byteLength;
         const blocksPerThread = global.env.blocksPerThread;
         const numBlocks = global.env.numBlocks;
+        const t2 = performance.now();
         const dataView = Uint8Array.from(Object.values(global.env.dataView))
+        const t3 = performance.now();
+
+        console.log(t2 - t1, "ms");
+        console.log(t3 - t2, "ms");
+
         let endBlock = startBlock + blocksPerThread;
         if (endBlock > numBlocks) {
             endBlock = numBlocks;
         }
         const bufferView = new Array(5 * (endBlock - startBlock)).fill(0);
 
+        console.log("startBlock = ", startBlock);
+        console.log("endBlock = ", endBlock);
+
         let adlerInfo = null;
         let offset = 0;
+        const s = performance.now();
         for (let i = startBlock; i < endBlock; i++) {
             let start = i * blockSize;
             let end = start + blockSize;
@@ -316,6 +327,7 @@ var BSync = new function()
                 bufferView[offset++] = sipHashSum[j];
             }
         }
+        console.log("calculation time: ", performance.now() - s, "ms");
         return bufferView;
     }
 
@@ -333,15 +345,8 @@ var BSync = new function()
     async function createChecksumDocument(blockSize, data) {
         const byteLength = data.byteLength;
         const numBlocks = Math.ceil(byteLength / blockSize);
-        const docLength = 20 * numBlocks + 12;
         let dataView = new Uint8Array(data);
         let bufferView = [blockSize, numBlocks, byteLength];
-
-        bufferView[0] = blockSize;
-        bufferView[1] = numBlocks;
-        bufferView[2] = byteLength;
-
-        console.log("pre bufferView: ", bufferView);
 
         let numThreads = Math.ceil(numBlocks / blocksPerThread);
         if (numThreads > maxThreads) {
@@ -385,7 +390,6 @@ var BSync = new function()
         })
         .then(data => data)
         .catch(err => console.log("Error calculating checksum: ", err));
-        console.log(res)
         return res;
     }
 
