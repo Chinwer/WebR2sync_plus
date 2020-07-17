@@ -285,7 +285,8 @@ var BSync = new function()
         const blocksPerThread = global.env.blocksPerThread;
         const numBlocks = global.env.numBlocks;
         const t2 = performance.now();
-        const dataView = Uint8Array.from(Object.values(global.env.dataView))
+        // const dataView = Uint8Array.from(Object.values(global.env.dataView))
+        const dataView = new Uint8Array(global.env.data);
         const t3 = performance.now();
 
         console.log(t2 - t1, "ms");
@@ -345,7 +346,7 @@ var BSync = new function()
     async function createChecksumDocument(blockSize, data) {
         const byteLength = data.byteLength;
         const numBlocks = Math.ceil(byteLength / blockSize);
-        let dataView = new Uint8Array(data);
+        // let dataView = new Uint8Array(data);
         let bufferView = [blockSize, numBlocks, byteLength];
 
         let numThreads = Math.ceil(numBlocks / blocksPerThread);
@@ -360,7 +361,8 @@ var BSync = new function()
         }
         const para = new Parallel(dataThreads, {
             env: {
-                dataView,
+                // dataView,
+                data,
                 numBlocks,
                 blockSize,
                 byteLength,
