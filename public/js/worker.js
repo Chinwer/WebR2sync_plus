@@ -1,7 +1,7 @@
-let SipHash = require('./siphash')
 const MODADLER = 65521;
 const siphash = function(message, seed, offset, chunksize) {
     const m = message.slice(offset, offset + chunksize);
+    importScripts("siphash.js")
     return SipHash.lib.hash(m)
 }
 
@@ -64,7 +64,7 @@ function work(message) {
 
         // calculate the adler32 checksum
         if (adlerInfo) {
-            adlerInfo = rollingChecksum(start, end - 1, dataView)
+            adlerInfo = rollingChecksum(start, end - 1, dataView, adlerInfo)
         } else {
             adlerInfo = adler32(start, end - 1, dataView);
         }
