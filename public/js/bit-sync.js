@@ -29,8 +29,9 @@
  */
 
 // number of blocks each worker has to calculate
-const blocksPerWorker = 10;
+let blocksPerWorker = 10;
 const workerUrl = "js/worker.js"
+const maxWorkers = 4;
 
 var MMHASH3;
 if(!MMHASH3){
@@ -288,11 +289,16 @@ var BSync = new function()
      */
     function createChecksumDocument(blockSize, data) {
         const numBlocks = Math.ceil(data.byteLength / blockSize);
-        const workerNums = Math.ceil(numBlocks / blocksPerWorker);
         const docLength = 20 * numBlocks + 12;
         let doc = new ArrayBuffer(docLength);
         let dataView = new Uint8Array(data);
         let bufferView = new Uint32Array(doc);
+        let workerNums = Math.ceil(numBlocks / blocksPerWorker);
+
+        if (workerNums > maxWorkers) {
+            workerNums = maxWorkers;
+            blocksPerWorker = Math.ceil(numBlocks / workerNums);
+        }
 
         bufferView[0] = blockSize;
         bufferView[1] = numBlocks;
