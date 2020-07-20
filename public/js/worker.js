@@ -37,7 +37,7 @@ function adler32(offset, end, data) {
 }
 
 // function work(startBlock, endBlock, dataView, bufferView, blockSize, byteLength) {
-function work(message) {
+async function work(message) {
     console.log("----------------------")
     console.log("Hello from worker thread!")
     console.log("----------------------")
@@ -75,7 +75,12 @@ function work(message) {
         for (let j = 0; j < 4; j++) {
             bufferView[offset++] = sipHashSum[j];
         }
+        console.log('1')
     }
+    // self.postMessage({
+    //     doc
+    // });
+    // self.close()
 }
 
 self.onmessage = work;

@@ -287,7 +287,7 @@ var BSync = new function()
      *   16 bytes, md5 checksum
      *
      */
-    function createChecksumDocument(blockSize, data) {
+    async function createChecksumDocument(blockSize, data) {
         const numBlocks = Math.ceil(data.byteLength / blockSize);
         const docLength = 20 * numBlocks + 12;
         let doc = new ArrayBuffer(docLength);
@@ -305,6 +305,7 @@ var BSync = new function()
         bufferView[2] = data.byteLength;
 
         for (let i = 0; i < workerNums; i++) {
+            console.log('worker num: ', workerNums)
             let startBlock = i * blocksPerWorker;
             let endBlock = startBlock + blocksPerWorker - 1;
             if (endBlock >= numBlocks) {
@@ -312,7 +313,7 @@ var BSync = new function()
             }
 
             let worker = new Worker(workerUrl);
-            worker.postMessage({
+            await worker.postMessage({
                 startBlock,
                 endBlock,
                 dataView,
@@ -320,6 +321,11 @@ var BSync = new function()
                 blockSize,
                 byteLength: data.byteLength
             });
+            console.log('2')
+            worker.onmessage = await function (event) {
+                doc = event.data.doc
+                console.log('event data: ', event.data.doc);
+            }
         }
 
         return doc;
