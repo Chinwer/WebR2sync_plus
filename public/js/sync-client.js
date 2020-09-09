@@ -116,6 +116,7 @@ function createPatchBlocks(matchdoc){
         var d = new Date();
         var t = d.getTime() - checksum_timetamp.getTime();
         console.info(current_file.name,'patchdoc time is',t,'ms');
+        console.log('patchdoc create time: ', t)
         console.log('patchdoc from',start,'to',stop,':',doc_offset,current_file.size);
 
         //emit the patchdoc
