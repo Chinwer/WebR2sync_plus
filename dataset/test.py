@@ -57,11 +57,13 @@ def insertBytes(content, bytes, blocks):
     positions.sort()
 
     res = content[:positions[0]]
-    for i in range(blocks - 1):
+    for i in range(blocks):
+        last = i == blocks - 1
         start = i * bytesPerBlock
-        end = start + bytesPerBlock if i != blocks - 2 else len(bytes)
-        res += content[positions[i] : positions[i + 1]] + bytes[start : end]
-    res += content[positions[-1]:]
+        end = len(bytes) if last else start + bytesPerBlock
+        res += bytes[start : end] + (
+            content[positions[i]:] if last else content[positions[i] : positions[i + 1]]
+        )
     return res
 
 
@@ -127,5 +129,5 @@ def main():
         cut()
 
 if __name__ == "__main__":
-    createOriginalData()
+    # createOriginalData()
     main()
