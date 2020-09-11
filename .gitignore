@@ -3,3 +3,4 @@ upload/
 .DS_Store
 .idea/
 package-lock.json
+dataset/
