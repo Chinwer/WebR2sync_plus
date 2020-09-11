@@ -25,9 +25,11 @@ var test_hash_times = 0;
 
 var socket = io.connect('http://'+window.location.hostname+':8001');
 socket.on('matchdoc',function(req){
+    var time = new Date();
     traffic += req.matchdoc.byteLength;
     console.log("<<receive matchdoc of ",req.filename);
     checksum_timetamp = new Date();
+    console.log('create matchdoc and trans time: ', time - req.time)
     createPatchBlocks(req.matchdoc);
 });
 socket.on('SyncOver',function(req){
@@ -217,6 +219,7 @@ function load_blocks() {
     parseFile(current_file,async function(type,data,start,stop){
         var checksumstart = new Date().getTime();
         checksumdoc = await BSync.createChecksumDocument(block_size,data);
+        console.log('the return checksumdoc content: ', checksumdoc)
         var docView = new Uint32Array(checksumdoc);
         numBlocks = docView[1];
         all_bytelength += docView[2];
@@ -236,7 +239,7 @@ function load_blocks() {
             t = d.getTime() - checksumstart;
             console.log('checksum time is',t,'ms');
             checksum_timetamp = d;
-            socket.emit('checksumdoc', {'filename':current_file.name,'checksumdoc':all_checksumdoc});
+            socket.emit('checksumdoc', {'filename':current_file.name,'checksumdoc':all_checksumdoc, 'time': checksumstart});
             // lock = true;
 
             test_hash_average += t;

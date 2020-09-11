@@ -83,7 +83,8 @@ io.on('connection', function(socket)
   console.log('new connect!');
   socket.on('checksumdoc', function(req)
   {
-       
+      var time_1 = Date.now()
+      console.log('checksum list create and trans time: ', time_1-req.time)
       console.log('got checksumdoc of filename:',req.filename);
       filePath = basePath + req.filename;
 
@@ -96,20 +97,26 @@ io.on('connection', function(socket)
               var result = yield client.getStream(req.filename);
               streamToBuffer(result.stream, function (err, buffer) {
                   origin_file_cache[req.filename] = buffer
+                  var t1 = Date.now()
                   matchret = BSync.createMatchDocument(checksumdocBuffer,buffer);
+                  var t2 =Date.now()
+                  console.log('1 the simple matchdoc create time: ', t2-t1)
                   matchdoc = matchret[0];
                   filebytelength = matchret[1];
                   match_cache[req.filename] = [filebytelength,matchdoc];
-                  socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc});
+                  socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc, time:time_1});
               })
           }).catch(function (err) {
               console.log(err);
               origin_file_cache[req.filename] = new ArrayBuffer(0);
+              var t1 = Date.now()
               matchret = BSync.createMatchDocument(checksumdocBuffer,new ArrayBuffer(0));
+              var t2 =Date.now()
+              console.log('2 the simple matchdoc create time: ', t2-t1)
               matchdoc = matchret[0];
               filebytelength = matchret[1];
               match_cache[req.filename] = [filebytelength,matchdoc];
-              socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc});
+              socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc, time:time_1});
           });
       }else{
           fs.stat(filePath, function (err,stat) {
@@ -117,19 +124,25 @@ io.on('connection', function(socket)
               if (err == null) {
                   getFileData(filePath,function(data){
                       origin_file_cache[req.filename] = data
+                      var t1 = Date.now()
                       matchret = BSync.createMatchDocument(checksumdocBuffer,data);
+                      var t2 =Date.now()
+                      console.log('3 the simple matchdoc create time: ', t2-t1)
                       matchdoc = matchret[0];
                       filebytelength = matchret[1];
                       match_cache[req.filename] = [filebytelength,matchdoc];
-                      socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc});
+                      socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc, time:time_1});
                   })
               } else {
                   origin_file_cache[req.filename] = new ArrayBuffer(0);
+                  var t1 = Date.now()
                   matchret = BSync.createMatchDocument(checksumdocBuffer,new ArrayBuffer(0));
+                  var t2 =Date.now()
+                  console.log('4 the simple matchdoc create time: ', t2-t1)
                   matchdoc = matchret[0];
                   filebytelength = matchret[1];
                   match_cache[req.filename] = [filebytelength,matchdoc];
-                  socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc});
+                  socket.emit('matchdoc',{filename:req.filename,matchdoc:matchdoc, time:time_1});
               }
           });
       }

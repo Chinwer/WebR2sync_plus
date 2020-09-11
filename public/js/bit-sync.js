@@ -296,7 +296,9 @@ var BSync = new function()
         if (endBlock > numBlocks) {
             endBlock = numBlocks;
         }
-        const bufferView = new Array(5 * (endBlock - startBlock)).fill(0);
+        var Doc = new ArrayBuffer(4 * 5 * (endBlock - startBlock));
+        var bufferView = new Uint32Array(Doc);
+        // const bufferView = new Array(5 * (endBlock - startBlock)).fill(0);
 
         console.log("startBlock = ", startBlock);
         console.log("endBlock = ", endBlock);
@@ -322,6 +324,7 @@ var BSync = new function()
                 adlerInfo = adler32(start, end - 1, dataView);
             }
             bufferView[offset++] = adlerInfo.checksum;
+            console.log('%%%%%%%%%%%: ', adlerInfo)
             // calculate the full SipHash checksum
             const sipHashSum = md5(dataView, 0, start, chunkLength);
             for (let j = 0; j < 4; j++) {
@@ -329,7 +332,9 @@ var BSync = new function()
             }
         }
         console.log("calculation time: ", performance.now() - s, "ms");
-        return bufferView;
+        // return bufferView;
+        console.log('return  bufferDoc: ', bufferView)
+        return Doc
     }
 
     /**
@@ -347,7 +352,17 @@ var BSync = new function()
         const byteLength = data.byteLength;
         const numBlocks = Math.ceil(byteLength / blockSize);
         // let dataView = new Uint8Array(data);
-        let bufferView = [blockSize, numBlocks, byteLength];
+        var docLength = ( numBlocks * //the number of blocks times
+            ( 4 +       //the 4 bytes for the adler32 plus
+                16) +     //the 16 bytes for the md5
+            4 +         //plus 4 bytes for block size
+            4 + 4);         //plus 4 bytes for the number of blocks
+        var doc = new ArrayBuffer(docLength)
+        var bufferView = new Uint32Array(doc)
+        bufferView[0] = blockSize;
+        bufferView[1] = numBlocks;
+        bufferView[2] = byteLength;
+        // let bufferView = [blockSize, numBlocks, byteLength];
 
         let numThreads = Math.ceil(numBlocks / blocksPerThread);
         if (numThreads > maxThreads) {
@@ -379,13 +394,16 @@ var BSync = new function()
             para
             .map(calcu)
             .then(data => {
+                var offset = 3;
                 console.log("data: ", data);
                 console.log(typeof data);
-                const len = data.length;
+                var len = data.length;
                 for (let i = 0; i < len; i++) {
-                    bufferView.push(...data[i]);
+                    for(let j=0; j<data[i].byteLength; j++){
+                        bufferView[offset++]=data[j];
+                    }
                 }
-                resolve(bufferView);
+                resolve(doc);
             }, err => {
                 reject(err);
             });
